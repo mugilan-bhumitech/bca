@@ -12,4 +12,4 @@ export const LINKS = {
   address: '3/2, Karpaga Vinayagar Koil Street, Alandur, Chennai – 600016, India',
 };
 
-export const img = (name) => `/assets/images/${name}`;
+export const img = (name) => `${import.meta.env.BASE_URL}assets/images/${name}`;

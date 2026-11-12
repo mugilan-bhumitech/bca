@@ -36,19 +36,37 @@ export default function App() {
       if (location.key !== shown.key) setShown(location);
       return;
     }
-    if (reducedMotion() || !curtain.current) {
+    // Old shared links (*.php, *.html, /verification) only redirect: swap straight away, no curtain.
+    const legacyHop = /\.(php|html)$|^\/verification\/?$/.test(location.pathname) || /\.(php|html)$|^\/verification\/?$/.test(shown.pathname);
+    if (reducedMotion() || !curtain.current || legacyHop) {
       setShown(location);
       return;
     }
     const el = curtain.current;
     getLenis()?.stop();
-    gsap.timeline()
+    let swapped = false;
+    const swap = () => {
+      if (swapped) return;
+      swapped = true;
+      setShown(location);
+    };
+    const tl = gsap.timeline()
       .set(el, { yPercent: 100, display: 'block' })
       .to(el, { yPercent: 0, duration: 0.7, ease: 'expo.inOut' })
-      .add(() => setShown(location))
+      .add(swap)
       .to(el, { yPercent: -100, duration: 0.8, ease: 'expo.inOut', delay: 0.15 })
       .set(el, { display: 'none' })
       .add(() => getLenis()?.start());
+    // The curtain runs on animation frames; if a throttled or background tab stalls them,
+    // still swap the page and clear the curtain so navigation never hangs.
+    const fallback = setTimeout(() => {
+      if (swapped) return;
+      tl.kill();
+      gsap.set(el, { display: 'none' });
+      getLenis()?.start();
+      swap();
+    }, 1200);
+    return () => clearTimeout(fallback);
   }, [location]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // After a page swap: title, scroll position / hash target, refresh triggers.
@@ -67,7 +85,7 @@ export default function App() {
   return (
     <>
       <div className="route-curtain" ref={curtain} aria-hidden="true">
-        <img src="/assets/images/bhumi-logo.png" alt="" />
+        <img src={`${import.meta.env.BASE_URL}assets/images/bhumi-logo.png`} alt="" />
       </div>
       <Routes location={shown}>
         <Route path="/" element={<Home booted={booted} />} />
